@@ -1,26 +1,30 @@
 package main
 
 import (
+	"GeeCache/geecache"
 	"fmt"
-	"sync"
-	"time"
+	"log"
+	"net/http"
 )
 
-var m sync.Mutex
-var set = make(map[int]bool, 0)
-
-func printOnce(num int) {
-	m.Lock()
-	defer m.Unlock()
-	if _, exist := set[num]; !exist {
-		fmt.Println(num)
-	}
-	set[num] = true
+var db = map[string]string{
+	"Tom":  "630",
+	"Jack": "589",
+	"Mike": "567",
 }
 
 func main() {
-	for i := 0; i < 10; i++ {
-		go printOnce(100)
-	}
-	time.Sleep(time.Second)
+	geecache.NewGroup("scores", 2<<10, geecache.GetterFunc(
+		func(key string) ([]byte, error) {
+			log.Println("[SlowDB] search key", key)
+			if v, ok := db[key]; ok {
+				return []byte(v), nil
+			}
+			return nil, fmt.Errorf("%s not exist", key)
+		}))
+
+	addr := "localhost:9999"
+	peers := geecache.NewHTTPPool(addr)
+	log.Println("geecache is running at", addr)
+	log.Fatal(http.ListenAndServe(addr, peers))
 }
